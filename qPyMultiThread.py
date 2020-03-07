@@ -1639,10 +1639,10 @@ class APIClient(object):
                 numHostAssetThreads = int(options.numHostAssetThreads),
                 chunkSize = int(options.chunkSize),
                 detectionDelta = options.detectionDelta,
-                debug = option.parse_args(['-D']),
+                debug = options.debug,
                 NoRetryCodes = NORETRYCODES,
                 key = None,
-                pullbyip = option.parse_args(['-i']),
+                pullbyip = options.pullbyip,
                 default_settings = None)
 
         if self.config.debug:

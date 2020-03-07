@@ -114,7 +114,6 @@ class IDSet(object):
             self.items[int(left)] = int(right)
         else:
             self.items[int(id_or_range)] = int(id_or_range)
-            print(self.items)
             # self.items[ip2int(id_or_range)] = ip2int(id_or_range)
 
     def addRange(self, left, right):
