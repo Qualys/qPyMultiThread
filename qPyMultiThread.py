@@ -1568,7 +1568,6 @@ class APIClient(object):
                           help = "Qualys API Username")
         parser.add_option("-p",
                           dest = "password",
-                          action = 'store_true',
                           help = "Qualys API Password")
         parser.add_option("-P",
                           dest = "useProxy",
