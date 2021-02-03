@@ -145,17 +145,22 @@ if is_py2:
     from urllib2 import urlopen, ProxyHandler, build_opener, install_opener, Request, HTTPSHandler, HTTPHandler
     from urllib2 import HTTPError, URLError
     from httplib import HTTPSConnection, HTTPException
+    str = unicode
+
 if is_py3:
     import queue
     from builtins import object
     from builtins import next
     from builtins import range
     from builtins import str
-    from future.moves.urllib.request import urlopen, ProxyHandler, build_opener, install_opener, Request, HTTPSHandler
+    from future.moves.urllib.request import urlopen, ProxyHandler, build_opener, install_opener
+    from future.moves.urllib.request import Request, HTTPSHandler, HTTPHandler
     from future.moves.urllib.error import HTTPError, URLError
     from http.client import HTTPSConnection
     from http.client import HTTPException
     from builtins import input as raw_input
+    str = str
+
 
 # ---------
 # Local Imports
@@ -170,6 +175,7 @@ from lib import utils
 logHandler = logHandler('qPyMultiThread')
 init = Configuration()
 init.setupFileStructure()
+import requests
 
 NORETRYCODES = [400]
 
@@ -350,7 +356,7 @@ class APIClient(object):
                 install_opener(proxyopener)
             except Exception as e:
                 logHandler.dynamicLogger("Failed to install proxy", logLevel = 'error')
-                return e.message
+                return e.str(e)
 
         request = APIRequest(
                 type = 'GET',
@@ -1172,16 +1178,16 @@ class APIClient(object):
             logHandler.dynamicLogger(
                     "Failed to parse API Output for endpoint {endpoint}. Message: {message}",
                     endpoint = self.config.baseURL,
-                    message = e.message,
+                    message = str(e),
                     logLevel = ERROR)
             try:
                 self.renameFile(oldFileName = file_name, newFileName = file_name + ".errored")
             except Exception as err:
                 logHandler.dynamicLogger(
                         "Could not rename errored xml response filename. Reason: {message}",
-                        message = err.message,
+                        message = str(err),
                         logLevel = ERROR)
-            return e.message
+            return str(e)
 
         logHandler.dynamicLogger("Parsed %d Host entries. Logged=%d" % (total, logged))
         self.remaining -= self.config.chunkSize
@@ -1490,7 +1496,7 @@ class APIClient(object):
             for i in self.id_set:
                 try:
                     # skip invalid IPv4 addresses
-                    ipaddress.IPv4Address(unicode(i))
+                    ipaddress.IPv4Address(str(i))
                     ipid = utils.ip2int(i)
                     ids.addString(str(ipid))
                 except (AddressValueError, NetmaskValueError):
@@ -1601,12 +1607,12 @@ class APIClient(object):
         conf.add_option("-i",
                         dest = "pullbyip",
                         default = False,
-                        action = 'store_true',
+                        action = 'store_false',
                         help = "Enable pulling data by batches of IPs instead of host ids")
         conf.add_option("-D",
                         dest = "debug",
                         default = False,
-                        action = 'store_true',
+                        action = 'store_false',
                         help = "Enable Debug Logging")
         option.add_option_group(parser)
         option.add_option_group(conf)
@@ -1622,7 +1628,7 @@ class APIClient(object):
         if username is None or username == '':
             username = raw_input("QG Username: ")
 
-        if password is None or password is '':
+        if password is None or password == '':
             import getpass
             password = getpass.getpass("QG Password:")
 
