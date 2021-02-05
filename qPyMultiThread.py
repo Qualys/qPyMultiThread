@@ -175,7 +175,6 @@ from lib import utils
 logHandler = logHandler('qPyMultiThread')
 init = Configuration()
 init.setupFileStructure()
-import requests
 
 NORETRYCODES = [400]
 
@@ -356,7 +355,7 @@ class APIClient(object):
                 install_opener(proxyopener)
             except Exception as e:
                 logHandler.dynamicLogger("Failed to install proxy", logLevel = 'error')
-                return e.str(e)
+                return str(e)
 
         request = APIRequest(
                 type = 'GET',
@@ -397,7 +396,6 @@ class APIClient(object):
                 import traceback
             logHandler.checkException(
                     exception = e,
-                    traceback = 'TrackbackDisabled' if traceback is None else traceback.format_exc(),
                     request = validatereq,
                     response = validateresponse,
                     context = context,
