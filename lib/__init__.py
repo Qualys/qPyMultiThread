@@ -1,5 +1,5 @@
 # -*- coding=iso-8859-1 -*-
-# Copyright 2019 Qualys Inc. All Rights Reserved.
+# Copyright 2021 Qualys Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@ from .__version__ import __version__, __author__, __email__, __license__, __copy
 
 # Set default logging handler to avoid "No handler found" warnings.
 import logging
+from logging import NullHandler
 try:  # Python 2.7+
-    from logging import NullHandler
+    pass
 except ImportError:
     class NullHandler(logging.Handler):
         def emit(self, record):

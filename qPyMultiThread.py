@@ -1,5 +1,5 @@
 # -*- coding=iso-8859-1 -*-
-# Copyright 2019 Qualys Inc. All Rights Reserved.
+# Copyright 2021 Qualys Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -118,49 +118,35 @@ from random import randint
 from threading import Thread, current_thread
 import ipaddress
 from ipaddress import NetmaskValueError, AddressValueError
+from hashlib import md5 as _md5
 
-try:
-    from hashlib import sha1 as _sha, md5 as _md5
-except ImportError:
-    # prior to Python 2.5, these were separate modules
-    import sha
-    import md5
+import xml.etree.cElementTree as ET
 
-    _sha = sha.new
-    _md5 = md5.new
-try:
-    import xml.etree.cElementTree as ET
-except ImportError:
-    import xml.etree.ElementTree as ET
-
-# Check Python version so we can import the appropriate libraries
+# Check Python version as deprecated versions are not longer supported
 _ver = sys.version_info
 
 #: Python 2.x?
 is_py2 = (_ver[0] == 2)
-#: Python 3.x?
-is_py3 = (_ver[0] == 3)
 if is_py2:
-    import Queue as queue
-    from urllib2 import urlopen, ProxyHandler, build_opener, install_opener, Request, HTTPSHandler, HTTPHandler
-    from urllib2 import HTTPError, URLError
-    from httplib import HTTPSConnection, HTTPException
-    str = unicode
+    print('Deprecated python version, please upgrade')
+    quit()
+is_py3 = (_ver[0] == 3)
 
-if is_py3:
-    import queue
-    from builtins import object
-    from builtins import next
-    from builtins import range
-    from builtins import str
-    from future.moves.urllib.request import urlopen, ProxyHandler, build_opener, install_opener
-    from future.moves.urllib.request import Request, HTTPSHandler, HTTPHandler
-    from future.moves.urllib.error import HTTPError, URLError
-    from http.client import HTTPSConnection
-    from http.client import HTTPException
-    from builtins import input as raw_input
-    str = str
+if is_py3 and _ver[1] < 6:
+    print('Deprecated python version, please upgrade')
+    quit()
 
+import queue
+from builtins import object
+from builtins import next
+from builtins import range
+from builtins import str
+from urllib.request import urlopen, ProxyHandler, build_opener, install_opener
+from urllib.request import Request, HTTPSHandler, HTTPHandler
+from urllib.error import HTTPError, URLError
+from http.client import HTTPSConnection
+from http.client import HTTPException
+from builtins import input as raw_input
 
 # ---------
 # Local Imports
@@ -239,7 +225,7 @@ class HTTPSConnectionWithKeepAlive(HTTPSConnection):
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, keepalive_interval_sec)
             self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, keep_alive_max_fail)
         elif sys.platform.startswith('darwin'):
-            # MAC OSX - is similar to linux but the only probelem is that
+            # MAC OSX - is similar to linux but the only problem is that
             # on OSX python socket module does not export TCP_KEEPIDLE,TCP_KEEPINTVL,TCP_KEEPCNT constant.
             # Taking the value for TCP_KEEPIDLE from darwin tcp.h
             # https://github.com/apple/darwin-xnu/blob/master/bsd/netinet/tcp.h
@@ -268,8 +254,8 @@ class Formatter(IndentedHelpFormatter):
         bits = description.split('\n')
         formatted_bits = [textwrap.fill(bit,
                                         desc_width,
-                                        initial_indent = indent,
-                                        subsequent_indent = indent) for bit in bits]
+                                        initial_indent=indent,
+                                        subsequent_indent=indent) for bit in bits]
         result = "\n".join(formatted_bits) + "\n"
         return result
 
@@ -331,14 +317,14 @@ class APIClient(object):
         self.receivedBytes = 0
         self.vulns = 0
         self.detectionParameters = dict(
-                action = 'list',
-                show_igs = 0,
-                show_reopened_info = 1,
-                # active_kernels_only=1,
-                output_format = 'XML',
-                status = 'Active,Re-Opened,New',
-                # detection_processed_after=self.config.detectionDelta,
-                truncation_limit = 0
+            action='list',
+            show_igs=0,
+            show_reopened_info=1,
+            # active_kernels_only=1,
+            output_format='XML',
+            status='Active,Re-Opened,New',
+            # detection_processed_after=self.config.detectionDelta,
+            truncation_limit=0
         )
 
     def validate(self):
@@ -354,39 +340,39 @@ class APIClient(object):
             try:
                 install_opener(proxyopener)
             except Exception as e:
-                logHandler.dynamicLogger("Failed to install proxy", logLevel = 'error')
+                logHandler.dynamicLogger("Failed to install proxy", logLevel='error')
                 return str(e)
 
         request = APIRequest(
-                type = 'GET',
-                username = self.config.username,
-                password = self.config.password)
+            type='GET',
+            username=self.config.username,
+            password=self.config.password)
         request.build_headers()
         validatereq = Request(
-                self.config.baseURL + self.config.validateURL,
-                data = None,
-                headers = request.headers)
+            self.config.baseURL + self.config.validateURL,
+            data=None,
+            headers=request.headers)
         try:
             # make request
             ctx = ssl.create_default_context()
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
 
-            https_handler = HTTPSHandler(debuglevel = 1)
-            http_handler = HTTPHandler(debuglevel = 1)
+            https_handler = HTTPSHandler(debuglevel=1)
+            http_handler = HTTPHandler(debuglevel=1)
             opener = build_opener(https_handler)
             opener2 = build_opener(http_handler)
             install_opener(opener)
             install_opener(opener2)
 
-            validateresponse = urlopen(validatereq, timeout = self.timeout, context = ctx)
+            validateresponse = urlopen(validatereq, timeout=self.timeout, context=ctx)
             APIResponse.responseHeaders = validateresponse.info()
             logHandler.dynamicLogger("Got response from Proxy, and msp/about.php endpoint...")
             return APIResponse
         except (URLError, HTTPError) as ue:
-            logHandler.checkException(exception = ue,
-                                      request = validatereq,
-                                      retrycount = 0)
+            logHandler.checkException(exception=ue,
+                                      request=validatereq,
+                                      retrycount=0)
             # Failed validation of proxy or authentication
             return False
         except ssl.SSLError as e:
@@ -395,11 +381,11 @@ class APIClient(object):
             if self.config.debug:
                 import traceback
             logHandler.checkException(
-                    exception = e,
-                    request = validatereq,
-                    response = validateresponse,
-                    context = context,
-                    retrycount = 0)
+                exception=e,
+                request=validatereq,
+                response=validateresponse,
+                context=context,
+                retrycount=0)
             return False
         except IOError as e:
             # This will occur if something happens while iterating through the chunked response being written
@@ -407,12 +393,12 @@ class APIClient(object):
             # transient error occurred.
             import traceback
             logHandler.dynamicLogger(
-                    self.logMessages.message(IOERROR),
-                    duration = 0,
-                    url = validatereq.get_full_url() if validatereq is not None else None,
-                    traceback = traceback.format_exc(),
-                    exception = e,
-                    retrycount = 0)
+                self.logMessages.message(IOERROR),
+                duration=0,
+                url=validatereq.get_full_url() if validatereq is not None else None,
+                traceback=traceback.format_exc(),
+                exception=e,
+                retrycount=0)
             return False
 
     def closeConn(self, conn):
@@ -425,7 +411,7 @@ class APIClient(object):
             # Connection didnt exist, safe to just pass
             pass
 
-    def callDuration(self, startTime = None):
+    def callDuration(self, startTime=None):
         """Given a start Time, return the delta between now and then
         :param startTime: time.time()
         :return: (int) seconds
@@ -435,7 +421,7 @@ class APIClient(object):
         endTime = time.time()
         return round(endTime - startTime, 2)
 
-    def post(self, url, data = None, response = None, **kwargs):
+    def post(self, url, data=None, response=None, **kwargs):
         """Sends a POST request. Returns :class:APIResponse object.
         :param url: URL for the new :class:APIRequest object.
         :param data: (optional) Dictionary, bytes, or file-like object to send in the body of the :class:APIRequest.
@@ -443,13 +429,13 @@ class APIClient(object):
         :return: APIResponse
         """
         return self.call_api(
-                method = 'POST',
-                api_route = url,
-                data = data,
-                response = response,
-                **kwargs)
+            method='POST',
+            api_route=url,
+            data=data,
+            response=response,
+            **kwargs)
 
-    def get(self, url = None, data = None, response = None, **kwargs):
+    def get(self, url=None, data=None, response=None, **kwargs):
         """Sends a POST request. Returns :class:APIResponse object.
         :param url: URL for the new :class:APIRequest object.
         :param data: (optional) Dictionary, bytes, or file-like object to send in the body of the :class:APIRequest.
@@ -457,13 +443,13 @@ class APIClient(object):
         :return: APIResponse
         """
         return self.call_api(
-                method = 'GET',
-                api_route = url,
-                data = data,
-                response = response,
-                **kwargs)
+            method='GET',
+            api_route=url,
+            data=data,
+            response=response,
+            **kwargs)
 
-    def makeHash(self, value = None):
+    def makeHash(self, value=None):
         """ Return a hashed string, given an input.
         :param name: String value to encode
         :return: String hash
@@ -473,7 +459,7 @@ class APIClient(object):
         hash = result.hexdigest()
         return hash
 
-    def call_api(self, api_route = None, data = None, method = None, response = None, filename = None, **kwargs):
+    def call_api(self, api_route=None, data=None, method=None, response=None, filename=None, **kwargs):
         """
         This method does the actual API call. Returns response or raises an Exception.
         Does not support proxy at this moment.
@@ -494,18 +480,18 @@ class APIClient(object):
         # i.e: httplib.HTTPResponse#_read_status():
         #           if self.debuglevel > 0:
         #               print "reply:", repr(line)
-        http_handler = HTTPSHandlerWithKeepAlive(debuglevel = self.config.debug)
+        http_handler = HTTPSHandlerWithKeepAlive(debuglevel=self.config.debug)
         opener = build_opener(http_handler)
         install_opener(opener)
 
         # Prepare request
         prepared = APIRequest(
-                type = method,
-                username = self.config.username,
-                password = self.config.password,
-                data = data,
-                api_route = api_route,
-                hash = hash)
+            type=method,
+            username=self.config.username,
+            password=self.config.password,
+            data=data,
+            api_route=api_route,
+            hash=hash)
         req = prepared.build_request()
 
         while True:
@@ -513,8 +499,8 @@ class APIClient(object):
                 # Previous attempt failed, retry with exponential backoff
                 if retrycount > 0:
                     logHandler.dynamicLogger(self.logMessages.message(RETRY),
-                                             sleep = (30 + (2 ** retrycount)),
-                                             count = retrycount)
+                                             sleep=(30 + (2 ** retrycount)),
+                                             count=retrycount)
                     time.sleep(30 + (2 ** retrycount))
                     prepared.hash = self.makeHash(int(time.time()))
                     req = prepared.build_request()
@@ -538,25 +524,25 @@ class APIClient(object):
                     loglevel = INFO
                 msg = LOGPROXYCALL if self.config.useProxy is True else LOGCALL
                 logHandler.dynamicLogger(
-                        self.logMessages.message(msg) + " Request Hash: %s" % prepared.hash,
-                        url = api_route,
-                        params = datacopy,
-                        loglevel = loglevel)
+                    self.logMessages.message(msg) + " Request Hash: %s" % prepared.hash,
+                    url=api_route,
+                    params=datacopy,
+                    loglevel=loglevel)
 
                 # Make Request
                 ctx = ssl.create_default_context()
                 ctx.check_hostname = False
                 ctx.verify_mode = ssl.CERT_NONE
-                request = urlopen(req, timeout = self.timeout, context = ctx)
+                request = urlopen(req, timeout=self.timeout, context=ctx)
 
                 # Send response to XMLFileBufferedResponse class for handling
                 response.response = request
 
-                duration = self.callDuration(startTime = starttime)
+                duration = self.callDuration(startTime=starttime)
 
                 if not response.get_response():
                     logHandler.dynamicLogger("Error during Fetching for Request Hash: %s, Cleaning up and retrying",
-                                             hash, logLevel = DEBUG)
+                                             hash, logLevel=DEBUG)
                     keep_running = True
                     self.cleanup(response.file_name)
                     retrycount += 1
@@ -565,10 +551,10 @@ class APIClient(object):
                 # received, parsed, and saved response. Log its size,
                 # and return.
                 logHandler.dynamicLogger(
-                        self.logMessages.message(GOTRESPONSE),
-                        status = request.getcode(),
-                        duration = duration,
-                        hash = prepared.hash)
+                    self.logMessages.message(GOTRESPONSE),
+                    status=request.getcode(),
+                    duration=duration,
+                    hash=prepared.hash)
                 self.receivedBytes += response.totalSize
                 return response
 
@@ -584,14 +570,14 @@ class APIClient(object):
                     context = None
                 # Exception handling for the various http codes/reasons returned
                 shouldretry = logHandler.checkException(
-                        exception = ue,
-                        request = req,
-                        response = response,
-                        context = context,
-                        retrycount = retrycount,
-                        NoRetryCodes = self.config.NoRetryCodes,
-                        hash = prepared.hash)
-                self.renameFile(filename, filename + ".errored", hash = prepared.hash)
+                    exception=ue,
+                    request=req,
+                    response=response,
+                    context=context,
+                    retrycount=retrycount,
+                    NoRetryCodes=self.config.NoRetryCodes,
+                    hash=prepared.hash)
+                self.renameFile(filename, '{}{}'.format(filename, ".errored"), hash=prepared.hash)
                 if request is not None:
                     self.closeConn(request)
 
@@ -604,14 +590,14 @@ class APIClient(object):
                 retrycount += 1
                 context = 'SSLError'
                 traceback = None
-                shouldretry = logHandler.checkException(exception = e,
-                                                        request = req,
-                                                        response = response,
-                                                        context = context,
-                                                        retrycount = retrycount,
-                                                        NoRetryCodes = self.config.NoRetryCodes,
-                                                        hash = prepared.hash)
-                self.renameFile(filename, filename + ".errored", hash = prepared.hash)
+                shouldretry = logHandler.checkException(exception=e,
+                                                        request=req,
+                                                        response=response,
+                                                        context=context,
+                                                        retrycount=retrycount,
+                                                        NoRetryCodes=self.config.NoRetryCodes,
+                                                        hash=prepared.hash)
+                self.renameFile(filename, filename + ".errored", hash=prepared.hash)
                 if request is not None:
                     self.closeConn(request)
                 if shouldretry:
@@ -624,12 +610,12 @@ class APIClient(object):
                 # or a transient error occurred (Connection Timeout, Connection Reset)
                 import traceback
                 retrycount += 1
-                duration = self.callDuration(startTime = starttime)
-                logHandler.dynamicLogger(self.logMessages.message(IOERROR), duration = duration,
-                                         url = req.get_full_url() if req is not None else None,
-                                         traceback = traceback.format_exc(), exception = e, retrycount = retrycount,
-                                         hash = prepared.hash)
-                self.renameFile(filename, filename + ".errored", hash = prepared.hash)
+                duration = self.callDuration(startTime=starttime)
+                logHandler.dynamicLogger(self.logMessages.message(IOERROR), duration=duration,
+                                         url=req.get_full_url() if req is not None else None,
+                                         traceback=traceback.format_exc(), exception=e, retrycount=retrycount,
+                                         hash=prepared.hash)
+                self.renameFile(filename, '{}{}'.format(filename, ".errored"), hash=prepared.hash)
                 if request is not None:
                     self.closeConn(request)
                 continue
@@ -642,14 +628,14 @@ class APIClient(object):
                 endtime = time.time()
                 totaltime = endtime - starttime
                 logHandler.dynamicLogger(
-                        self.logMessages.message(UNHANDLEDEXCEPTION),
-                        duration = totaltime,
-                        url = req.get_full_url() if req is not None else None,
-                        traceback = traceback.format_exc(),
-                        exception = e,
-                        retrycount = retrycount,
-                        hash = prepared.hash)
-                self.renameFile(filename, filename + ".errored", hash = prepared.hash)
+                    self.logMessages.message(UNHANDLEDEXCEPTION),
+                    duration=totaltime,
+                    url=req.get_full_url() if req is not None else None,
+                    traceback=traceback.format_exc(),
+                    exception=e,
+                    retrycount=retrycount,
+                    hash=prepared.hash)
+                self.renameFile(filename, '{}{}'.format(filename, ".errored"), hash=prepared.hash)
                 if request is not None:
                     self.closeConn(request)
                 break
@@ -669,18 +655,21 @@ class APIClient(object):
         asset_ids = []
         host_ids = []
         logHandler.dynamicLogger("Fetching asset ids from portal..")
-        filename = self.config.outputDir + "/assets/portalasset_ids_%s_%s.xml" % (
-        os.getpid(), current_thread().getName())
+        filename = '{}/assets/portalasset_ids_{}_{}.xml'.format(
+            self.config.outputDir,
+            os.getpid(),
+            current_thread().getName()
+        )
         keep_running = True
         while keep_running:
 
             # Make an API call and send it to XMLFileBufferedResponse
             self.post(self.config.baseURL + api_route,
-                      data = data,
-                      response = XMLFileBufferedResponse(file_name = filename, logger = logHandler),
-                      filename = filename)
+                      data=data,
+                      response=XMLFileBufferedResponse(file_name=filename, logger=logHandler),
+                      filename=filename)
             time.sleep(5)
-            logHandler.dynamicLogger("Wrote API response to {filename}", filename = filename)
+            logHandler.dynamicLogger("Wrote API response to {filename}", filename=filename)
             logHandler.dynamicLogger("Parsing IDs..")
             tree = ET.parse(filename)
             root = tree.getroot()
@@ -700,9 +689,9 @@ class APIClient(object):
         """This method will fetch all the host ids in single API call."""
         api_route = '/api/2.0/fo/asset/host/'
         params = dict(
-                action = 'list',
-                truncation_limit = 0,
-                vm_processed_after = self.config.detectionDelta,
+            action='list',
+            truncation_limit=0,
+            vm_processed_after=self.config.detectionDelta,
         )
         asset_ids = []
         if self.config.pullbyip:
@@ -714,20 +703,20 @@ class APIClient(object):
             childtag = 'ID'
             params['details'] = 'None'
         logHandler.dynamicLogger("Fetching asset ids..")
-        filename = self.config.outputDir + "/assets/asset_ids_%s_%s.xml" % (
-                os.getpid(), current_thread().getName())
+        filename = '{}/assets/asset_ids_{}_{}.xml'.format(self.config.outputDir, os.getpid(),
+                                                          current_thread().getName())
         keep_running = True
         while keep_running:
 
             # Make an API call and send it to XMLFileBufferedResponse
             self.get(
-                    self.config.baseURL + api_route,
-                    data = params,
-                    response = XMLFileBufferedResponse(file_name = filename, logger = logHandler),
-                    filename = filename
+                self.config.baseURL + api_route,
+                data=params,
+                response=XMLFileBufferedResponse(file_name=filename, logger=logHandler),
+                filename=filename
             )
             time.sleep(5)
-            logHandler.dynamicLogger("Wrote API response to {filename}", filename = filename)
+            logHandler.dynamicLogger("Wrote API response to {filename}", filename=filename)
             logHandler.dynamicLogger("Parsing IDs..")
             tree = ET.parse(filename)
             root = tree.getroot()
@@ -743,7 +732,7 @@ class APIClient(object):
             keep_running = False
             return asset_ids
 
-    def vm_detection_coordinator(self, detectionQueue = None):
+    def vm_detection_coordinator(self, detectionQueue=None):
         """This method is the entry point of each detection thread.
         It pops out an id range entry from detection queue, and calls
         download_host_detections passing id range as argument.
@@ -760,14 +749,14 @@ class APIClient(object):
                         asset_ips.append(utils.int2ip(int(i)))
                     ips = ",".join(map(str, asset_ips))
                     log_range = ips
-                logHandler.dynamicLogger("Processing batch: {idrange}", idrange = log_range, logLevel = DEBUG)
+                logHandler.dynamicLogger("Processing batch: {idrange}", idrange=log_range, logLevel=DEBUG)
                 self.download_host_detections(id_range, ips)
                 detectionQueue.task_done()
             except queue.Empty:
                 logHandler.dynamicLogger("detection_idset_queue is empty. Exiting.")
                 keep_running = False
 
-    def portal_assethost_coordinator(self, hostAsset = None):
+    def portal_assethost_coordinator(self, hostAsset=None):
         """This method is the entry point of each HostAsset thread.
         It pops out an id range entry from detection queue, and calls
         download_host_detections passing id range as argument.
@@ -777,7 +766,7 @@ class APIClient(object):
             try:
                 logHandler.dynamicLogger("Getting batch from HostAsset_idset_queue")
                 id_range = hostAsset.get(False)
-                logHandler.dynamicLogger("Processing batch: {idrange}", idrange = id_range, logLevel = DEBUG)
+                logHandler.dynamicLogger("Processing batch: {idrange}", idrange=id_range, logLevel=DEBUG)
                 self.download_portal_assethost(id_range)
                 hostAsset.task_done()
             except queue.Empty:
@@ -798,7 +787,7 @@ class APIClient(object):
         else:
             id1 = chunks[0]
             id2 = chunks[-1]
-        idset = "%s-%s" % (id1, id2)
+        idset = '{}-{}'.format(id1, id2)
         return idset
 
     def cleanup(self, filename):
@@ -806,7 +795,7 @@ class APIClient(object):
         :param filename: Name of file to try to delete.
         """
         try:
-            logHandler.dynamicLogger('Cleaning up filename: %s' % filename, logLevel = DEBUG)
+            logHandler.dynamicLogger('Cleaning up filename: %s' % filename, logLevel=DEBUG)
             os.remove(filename)
             # pause to give OS time to remove the file
             time.sleep(3)
@@ -814,7 +803,7 @@ class APIClient(object):
             # File didnt exist, so just pass
             pass
 
-    def renameFile(self, oldFileName, newFileName, hash = None):
+    def renameFile(self, oldFileName, newFileName, hash=None):
         """Rename a filename from the given old name.
         :param oldFileName: (str) filename to rename from.
         :param newFileName: (str) filename to rename to.
@@ -825,21 +814,21 @@ class APIClient(object):
             try:
                 if hash is None:
                     hash = randint(10000, 99999)
-                newFileName = newFileName + ".%s" % hash
+                newFileName = '{}.{}'.format(newFileName, hash)
                 os.rename(oldFileName, newFileName)
                 if self.config.debug:
                     logHandler.dynamicLogger('Renamed old file: %s to: %s' % (oldFileName, newFileName),
-                                             logLevel = DEBUG)
+                                             logLevel=DEBUG)
             except OSError:
                 pass
 
     def determineFilename(self,
-                          ids = None,
-                          pid = None,
-                          thread = None,
-                          batch = None,
-                          extension = None,
-                          startTime = None):
+                          ids=None,
+                          pid=None,
+                          thread=None,
+                          batch=None,
+                          extension=None,
+                          startTime=None):
         """When Internal Error or Malformed exceptions are returned, api_params wont always be defined
         Make sure this is caught, and revert to saving to another filename
         with a datetime instead.
@@ -853,27 +842,27 @@ class APIClient(object):
         """
         if ids is not None:
             filename = self.logMessages.message(FILENAMEERRORED).format(
-                    dir = self.config.tempDirectory,
-                    range = ids,
-                    pid = pid,
-                    thread = thread,
-                    batch = batch,
-                    rand = randint(10000, 99999),
-                    extension = extension)
+                dir=self.config.tempDirectory,
+                range='{}-{}'.format(min(ids), max(ids)),
+                pid=pid,
+                thread=thread,
+                batch=batch,
+                rand=randint(10000, 99999),
+                extension=extension)
         else:
             filename = self.logMessages.message(FILENAMEERROREDTIME).format(
-                    dir = self.config.tempDirectory,
-                    time = startTime.strftime('%Y-%m-%d-%M-%S'),
-                    pid = pid,
-                    thread = thread,
-                    batch = batch,
-                    rand = randint(10000, 99999),
-                    extension = extension)
+                dir=self.config.tempDirectory,
+                time=startTime.strftime('%Y-%m-%d-%M-%S'),
+                pid=pid,
+                thread=thread,
+                batch=batch,
+                rand=randint(10000, 99999),
+                extension=extension)
         return filename
 
     def verifyResponse(self, parseresponse,
-                       filename = None,
-                       orig_filename = None
+                       filename=None,
+                       orig_filename=None
                        ):
         """An HTTP response from Qualys API endpoints can be returned as a 200 Okay, and still have errors.
         Client Errors, and sometimes transient errors will be returned in the RESPONSE tag of the XML with
@@ -892,15 +881,15 @@ class APIClient(object):
 
         if "Internal Error" in parseresponse or "Internal error" in parseresponse:
             logHandler.dynamicLogger(
-                    "API Internal Error, Leaving File {filename}, and Retrying",
-                    filename = filename, logLevel = DEBUG)
-            self.renameFile(oldFileName = orig_filename, newFileName = filename)
+                "API Internal Error, Leaving File {filename}, and Retrying",
+                filename=filename, logLevel=DEBUG)
+            self.renameFile(oldFileName=orig_filename, newFileName=filename)
             return False
         elif "not well-formed" in parseresponse:
             logHandler.dynamicLogger(
-                    "Malformed XML detected in {filename}, Retrying",
-                    filename = filename, logLevel = DEBUG)
-            self.renameFile(oldFileName = orig_filename, newFileName = filename)
+                "Malformed XML detected in {filename}, Retrying",
+                filename=filename, logLevel=DEBUG)
+            self.renameFile(oldFileName=orig_filename, newFileName=filename)
             return False
         else:
             return True
@@ -919,21 +908,21 @@ class APIClient(object):
         eta = round(((remainingBatches * avgTime) / self.config.numDetectionThreads) / 60, 2)
         if self.config.debug:
             logHandler.dynamicLogger(
-                    "completedThreads durations: {completed}, Total for all Threads: {allThreads}, "
-                    "avgTime: {avgTime}, remainingBatches: {remainingBatches}, eta: {eta} minutes, "
-                    "totalRemaining hosts: {remainingHosts}, "
-                    "totalCompleted hosts: {completedHosts}",
-                    completed = self.completedThreads,
-                    allThreads = allThreads,
-                    avgTime = avgTime,
-                    remainingBatches = remainingBatches,
-                    eta = eta,
-                    remainingHosts = self.remaining,
-                    completedHosts = self.completed,
-                    logLevel = DEBUG)
+                "completedThreads durations: {completed}, Total for all Threads: {allThreads}, "
+                "avgTime: {avgTime}, remainingBatches: {remainingBatches}, eta: {eta} minutes, "
+                "totalRemaining hosts: {remainingHosts}, "
+                "totalCompleted hosts: {completedHosts}",
+                completed=self.completedThreads,
+                allThreads=allThreads,
+                avgTime=avgTime,
+                remainingBatches=remainingBatches,
+                eta=eta,
+                remainingHosts=self.remaining,
+                completedHosts=self.completed,
+                logLevel=DEBUG)
         return eta
 
-    def download_host_detections(self, ids, asset_ips = None):
+    def download_host_detections(self, ids, asset_ips=None):
         """This method will invoke call_api method for asset/host/vm/detection/ API."""
         api_route = '/api/2.0/fo/asset/host/vm/detection/'
         params = self.detectionParameters
@@ -951,24 +940,26 @@ class APIClient(object):
         # i.e 123456-999999 instead of 123456,123457,123458...
         idset = self.chunk(ids)
 
-        logHandler.dynamicLogger("Downloading VM detections for batch: {idset}", idset = idset)
+        logHandler.dynamicLogger("Downloading VM detections for batch: {idset}", idset=idset)
 
         if params['output_format'] != 'XML':
             file_extension = 'csv'
             params['truncation_limit'] = 0
         while keep_running:
-            filename = self.config.outputDir + "/vm_detections/vm_detections_Range-%s_Process-%s_%s_Batch-%d.%s" % (
-                    idset, os.getpid(), current_thread().getName(), batch, file_extension)
+            filename = '{}/vm_detections/vm_detections_Range-{}_Process-{}_{}_Batch-{}.{}'.format(self.config.outputDir,
+                                                                                                  idset, os.getpid(),
+                                                                                                  current_thread().getName(),
+                                                                                                  batch, file_extension)
 
             startTime = time.time()
 
             # Make Request
             response = self.get(
-                    url = self.config.baseURL + api_route,
-                    data = params,
-                    response = XMLFileBufferedResponse(file_name = filename, logger = logHandler),
-                    filename = filename)
-            duration = self.callDuration(startTime = startTime)
+                url=self.config.baseURL + api_route,
+                data=params,
+                response=XMLFileBufferedResponse(file_name=filename, logger=logHandler),
+                filename=filename)
+            duration = self.callDuration(startTime=startTime)
             self.completedThreads.append(duration)
 
             size = 0
@@ -976,37 +967,37 @@ class APIClient(object):
                 size = response.totalSize
                 self.totalBytes = self.totalBytes + response.totalSize
             logHandler.dynamicLogger(
-                    "Wrote API response with {size} bytes, "
-                    "avg speed: {speed} KB/sec, "
-                    "Combined speed: {combinedSpeed} KB/sec "
-                    "API Duration: {duration}, to {filename}, "
-                    "Hosts remaining: {remaining}, "
-                    "ETA until completion: {ETA} minutes, "
-                    "Total Data received: {totalBytesreceived} MB, "
-                    "Projected Total size: {projectedTotal} MB",
-                    size = size,
-                    speed = round(response.totalSize / duration / 1000, 2),
-                    combinedSpeed = round((response.totalSize / duration / 1000) * self.config.numDetectionThreads, 2),
-                    duration = duration,
-                    remaining = self.remaining,
-                    ETA = self.getETA(),
-                    totalBytesreceived = round((self.totalBytes / 1024 / 1024), 2),
-                    projectedTotal = round(
-                        ((size * (self.remaining / self.config.chunkSize)) + self.totalBytes) / 1024 / 1024, 2),
-                    filename = filename)
+                "Wrote API response with {size} bytes, "
+                "avg speed: {speed} KB/sec, "
+                "Combined speed: {combinedSpeed} KB/sec "
+                "API Duration: {duration}, to {filename}, "
+                "Hosts remaining: {remaining}, "
+                "ETA until completion: {ETA} minutes, "
+                "Total Data received: {totalBytesreceived} MB, "
+                "Projected Total size: {projectedTotal} MB",
+                size=size,
+                speed=round(response.totalSize / duration / 1000, 2),
+                combinedSpeed=round((response.totalSize / duration / 1000) * self.config.numDetectionThreads, 2),
+                duration=duration,
+                remaining=self.remaining,
+                ETA=self.getETA(),
+                totalBytesreceived=round((self.totalBytes / 1024 / 1024), 2),
+                projectedTotal=round(
+                    ((size * (self.remaining / self.config.chunkSize)) + self.totalBytes) / 1024 / 1024, 2),
+                filename=filename)
 
             # API Endpoint returned data, parse it for error codes, and
             # completeness. Retry if needed.
             parsed = self._parse(filename,
-                                 format = params['output_format'])
-            vfileName = self.determineFilename(ids = idset,
-                                               pid = os.getpid(),
-                                               thread = current_thread().getName(),
-                                               batch = batch,
-                                               extension = file_extension)
-            verified = self.verifyResponse(parseresponse = parsed,
-                                           orig_filename = filename,
-                                           filename = vfileName)
+                                 format=params['output_format'])
+            vfileName = self.determineFilename(ids=idset,
+                                               pid=os.getpid(),
+                                               thread=current_thread().getName(),
+                                               batch=batch,
+                                               extension=file_extension)
+            verified = self.verifyResponse(parseresponse=parsed,
+                                           orig_filename=filename,
+                                           filename=vfileName)
 
             if not verified:
                 keep_running = True
@@ -1025,16 +1016,16 @@ class APIClient(object):
                 response_element = root.find('RESPONSE')
                 if response_element is None:
                     logHandler.dynamicLogger(
-                            "RESPONSE tag not found in {filename}. Please check the file.",
-                            filename = filename,
-                            logLevel = 'error')
+                        "RESPONSE tag not found in {filename}. Please check the file.",
+                        filename=filename,
+                        logLevel='error')
                     keep_running = False
                 warning_element = response_element.find('WARNING')
                 if warning_element is None:
                     keep_running = False
                 else:
                     next_page_url = warning_element.find('URL').text
-                    params = utils.get_params_from_url(url = next_page_url)
+                    params = utils.get_params_from_url(url=next_page_url)
                     batch += 1
 
     def download_portal_assethost(self, ids):
@@ -1069,49 +1060,49 @@ class APIClient(object):
         # i.e 123456-999999 instead of 123456,123457,123458...
         idset = self.chunk(ids)
 
-        logHandler.dynamicLogger("Downloading Portal data for ids {idset}", idset = idset)
+        logHandler.dynamicLogger("Downloading Portal data for ids {idset}", idset=idset)
 
         while keep_running:
             filename = self.config.outputDir + "/portal/Portal_hostasset_Range-%s_Process-%s_%s_Batch-%d.%s" % (
-                    idset, os.getpid(), current_thread().getName(), batch, file_extension)
+                idset, os.getpid(), current_thread().getName(), batch, file_extension)
 
             startTime = time.time()
 
             # Make Request
             response = self.post(
-                    url = self.config.baseURL + api_route,
-                    data = params,
-                    response = XMLFileBufferedResponse(file_name = filename, logger = logHandler),
-                    filename = filename)
-            duration = self.callDuration(startTime = startTime)
+                url=self.config.baseURL + api_route,
+                data=params,
+                response=XMLFileBufferedResponse(file_name=filename, logger=logHandler),
+                filename=filename)
+            duration = self.callDuration(startTime=startTime)
             self.completedThreads.append(duration)
             size = 0
             if response.totalSize is not None:
                 size = response.totalSize
             logHandler.dynamicLogger(
-                    "Wrote API response with {size} bytes, "
-                    "avg speed: {speed} kb/sec, "
-                    "API Duration: {duration}, to {filename}, "
-                    "Hosts remaining: {remaining}, "
-                    "ETA until completion: {ETA} minutes",
-                    size = size,
-                    speed = round(response.totalSize / duration / 1000, 2),
-                    duration = duration,
-                    remaining = self.remaining,
-                    ETA = self.getETA(),
-                    filename = filename)
+                "Wrote API response with {size} bytes, "
+                "avg speed: {speed} kb/sec, "
+                "API Duration: {duration}, to {filename}, "
+                "Hosts remaining: {remaining}, "
+                "ETA until completion: {ETA} minutes",
+                size=size,
+                speed=round(response.totalSize / duration / 1000, 2),
+                duration=duration,
+                remaining=self.remaining,
+                ETA=self.getETA(),
+                filename=filename)
 
             # API Endpoint returned data, parse it for error codes, and
             # completeness. Retry if needed.
             parsed = self._parse(filename)
-            vfileName = self.determineFilename(ids = idset,
-                                               pid = os.getpid(),
-                                               thread = current_thread().getName(),
-                                               batch = batch,
-                                               extension = file_extension)
-            verified = self.verifyResponse(parseresponse = parsed,
-                                           orig_filename = filename,
-                                           filename = vfileName)
+            vfileName = self.determineFilename(ids=idset,
+                                               pid=os.getpid(),
+                                               thread=current_thread().getName(),
+                                               batch=batch,
+                                               extension=file_extension)
+            verified = self.verifyResponse(parseresponse=parsed,
+                                           orig_filename=filename,
+                                           filename=vfileName)
             if not verified:
                 keep_running = True
                 self.cleanup(filename)
@@ -1119,7 +1110,7 @@ class APIClient(object):
             else:
                 keep_running = False
 
-    def _parse(self, file_name, format = None):
+    def _parse(self, file_name, format=None):
         """Parse the resulting file gathered from the Qualys API Endpoint.
         Since error codes for incorrect parameters, and possibly transient errors can be returned,
         Need to double check the final XML file for error codes, and completeness.
@@ -1135,7 +1126,7 @@ class APIClient(object):
         next_url = None
 
         try:
-            context = iter(ET.iterparse(file_name, events = ('end',)))
+            context = iter(ET.iterparse(file_name, events=('end',)))
             _, root = next(context)
             for event, elem in context:
                 # Handle client errors
@@ -1144,11 +1135,11 @@ class APIClient(object):
                     error = elem.find('TEXT')
                     if code is not None:
                         logHandler.dynamicLogger(
-                                "API Client ERROR. Code={errorcode}, Message={errorText}",
-                                errorcode = code.text,
-                                errorText = error.text)
+                            "API Client ERROR. Code={errorcode}, Message={errorText}",
+                            errorcode=code.text,
+                            errorText=error.text)
                         elem.clear()
-                        # We dont want to retry these client errors, so raise
+                        # We don't want to retry these client errors, so raise
                         # an Exception
                         raise APIResponseError("API Client Error. Code=%s, Message=%s" %
                                                (code.text, error.text))
@@ -1174,17 +1165,17 @@ class APIClient(object):
                 root.clear()
         except ET.ParseError as e:
             logHandler.dynamicLogger(
-                    "Failed to parse API Output for endpoint {endpoint}. Message: {message}",
-                    endpoint = self.config.baseURL,
-                    message = str(e),
-                    logLevel = ERROR)
+                "Failed to parse API Output for endpoint {endpoint}. Message: {message}",
+                endpoint=self.config.baseURL,
+                message=str(e),
+                logLevel=ERROR)
             try:
-                self.renameFile(oldFileName = file_name, newFileName = file_name + ".errored")
+                self.renameFile(oldFileName=file_name, newFileName=file_name + ".errored")
             except Exception as err:
                 logHandler.dynamicLogger(
-                        "Could not rename errored xml response filename. Reason: {message}",
-                        message = str(err),
-                        logLevel = ERROR)
+                    "Could not rename errored xml response filename. Reason: {message}",
+                    message=str(err),
+                    logLevel=ERROR)
             return str(e)
 
         logHandler.dynamicLogger("Parsed %d Host entries. Logged=%d" % (total, logged))
@@ -1199,25 +1190,25 @@ class APIClient(object):
         """
 
         host_fields_to_log = [
-                'ID', 'IP', 'TRACKING_METHOD', 'DNS',
-                'NETBIOS', 'OS', 'LAST_SCAN_DATETIME', 'TAGS']
+            'ID', 'IP', 'TRACKING_METHOD', 'DNS',
+            'NETBIOS', 'OS', 'LAST_SCAN_DATETIME', 'TAGS']
         detection_fields_to_log = [
-                'QID', 'TYPE', 'PORT', 'PROTOCOL', 'SSL', 'STATUS',
-                'LAST_UPDATE_DATETIME', 'LAST_FOUND_DATETIME', 'FIRST_FOUND_DATETIME', 'LAST_TEST_DATETIME']
+            'QID', 'TYPE', 'PORT', 'PROTOCOL', 'SSL', 'STATUS',
+            'LAST_UPDATE_DATETIME', 'LAST_FOUND_DATETIME', 'FIRST_FOUND_DATETIME', 'LAST_TEST_DATETIME']
         fields_to_encode = ['OS', 'DNS', 'NETBIOS']
 
         if elem.tag == "HOST":
             plugin_output = []
             host_summary = []
             vulns_by_type = {
-                    'POTENTIAL': 0,
-                    'CONFIRMED': 0
+                'POTENTIAL': 0,
+                'CONFIRMED': 0
             }
             vulns_by_status = {
-                    'ACTIVE'   : 0,
-                    'NEW'      : 0,
-                    'FIXED'    : 0,
-                    'RE-OPENED': 0
+                'ACTIVE': 0,
+                'NEW': 0,
+                'FIXED': 0,
+                'RE-OPENED': 0
             }
             vulns_by_severity = {}
             other_stats = {}
@@ -1244,7 +1235,7 @@ class APIClient(object):
                     host_summary.append("%s=\"%s\"" % (name, val))
 
             if not host_id:
-                logHandler.dynamicLogger("Unable to find host_id", logLevel = 'error')
+                logHandler.dynamicLogger("Unable to find host_id", logLevel='error')
                 return False
 
             host_line = ", ".join(host_summary)
@@ -1275,18 +1266,18 @@ class APIClient(object):
                             vuln_summary.append('SEVERITY=%s' % severity)
 
                             vulns_by_severity[severity_key] = vulns_by_severity.get(
-                                    severity_key, 0) + 1
+                                severity_key, 0) + 1
                             if self.collect_advanced_host_summary:
                                 # Break down, count of vulns by each severity
                                 # and each status, type
                                 type_severity_key = '%s_%s' % (
-                                        type, severity_key)
+                                    type, severity_key)
                                 status_severity_key = '%s_%s' % (
-                                        status, severity_key)
+                                    status, severity_key)
                                 other_stats[type_severity_key] = other_stats.get(
-                                        type_severity_key, 0) + 1
+                                    type_severity_key, 0) + 1
                                 other_stats[status_severity_key] = other_stats.get(
-                                        status_severity_key, 0) + 1
+                                    status_severity_key, 0) + 1
 
                         for sub_ele in list(detection):
                             name = sub_ele.tag
@@ -1294,11 +1285,11 @@ class APIClient(object):
 
                             if name == 'TYPE':
                                 vulns_by_type[val] = vulns_by_type.get(
-                                        val, 0) + 1
+                                    val, 0) + 1
 
                             if name == 'STATUS':
                                 vulns_by_status[val] = vulns_by_status.get(
-                                        val, 0) + 1
+                                    val, 0) + 1
 
                             if name in detection_fields_to_log:
                                 vuln_summary.append("%s=\"%s\"" % (name, val))
@@ -1313,21 +1304,21 @@ class APIClient(object):
 
                             if self.seed_file_enabled:
                                 logHandler.dynamicLogger(
-                                        "%s %s" %
-                                        (host_id_line, ", ".join(vuln_summary)))
+                                    "%s %s" %
+                                    (host_id_line, ", ".join(vuln_summary)))
 
             if self.log_host_summary:
 
                 host_summary = [
-                        "HOSTSUMMARY: %s" %
-                        host_line,
-                        self.get_log_line_from_dict(vulns_by_severity),
-                        self.get_log_line_from_dict(vulns_by_type),
-                        self.get_log_line_from_dict(vulns_by_status)]
+                    "HOSTSUMMARY: %s" %
+                    host_line,
+                    self.get_log_line_from_dict(vulns_by_severity),
+                    self.get_log_line_from_dict(vulns_by_type),
+                    self.get_log_line_from_dict(vulns_by_status)]
 
                 if self.collect_advanced_host_summary:
                     host_summary.append(
-                            self.get_log_line_from_dict(other_stats))
+                        self.get_log_line_from_dict(other_stats))
                 if plugin_output:
                     host_summary.append(", ".join(plugin_output))
 
@@ -1355,7 +1346,7 @@ class APIClient(object):
             try:
                 logHandler.dynamicLogger("Getting id set from assets_idset_queue")
                 id_range = assets_idset_queue.get(False)
-                logHandler.dynamicLogger("Processing id set: {idrange}", idrange = id_range)
+                logHandler.dynamicLogger("Processing id set: {idrange}", idrange=id_range)
                 self.download_assets(id_range)
                 assets_idset_queue.task_done()
             except queue.Empty:
@@ -1366,41 +1357,43 @@ class APIClient(object):
         """This method will invoke call_api method for asset/host API."""
         api_route = '/api/2.0/fo/asset/host/'
         params = dict(
-                action = 'list',
-                echo_request = 1,
-                details = 'All/AGs',
-                ids = ids,
-                truncation_limit = 5000
+            action='list',
+            echo_request=1,
+            details='All/AGs',
+            ids=ids,
+            truncation_limit=5000
         )
         batch = 1
         logHandler.dynamicLogger("Downloading assets data..")
         keep_running = True
         while keep_running:
-            filename = self.config.outputDir + "/assets/assets_Range-%s_Proc-%s_%s_Batch-%d.xml" % (
-                    ids, os.getpid(), current_thread().getName(), batch)
+            idset = self.chunk(ids)
+            filename = '{}/assets/assets_Range-{}_Proc-{}_{}_Batch-{}.xml'.format(self.config.outputDir,
+                                                                                  idset, os.getpid(),
+                                                                                  current_thread().getName(), batch)
             response = self.get(
-                    self.config.baseURL + api_route,
-                    params,
-                    response = XMLFileBufferedResponse(file_name = filename, logger = logHandler))
+                self.config.baseURL + api_route,
+                params,
+                response=XMLFileBufferedResponse(file_name=filename, logger=logHandler))
             logHandler.dynamicLogger(
-                    "Wrote API response to {filename}",
-                    filename = filename)
+                "Wrote API response to {filename}",
+                filename=filename)
             logHandler.dynamicLogger("Parsing response XML...")
             tree = ET.parse(filename)
             root = tree.getroot()
             response_element = root.find('RESPONSE')
             if response_element is None:
                 logHandler.dynamicLogger(
-                        "RESPONSE tag not found in {filename}. Please check the file.",
-                        filename = filename)
+                    "RESPONSE tag not found in {filename}. Please check the file.",
+                    filename=filename)
                 keep_running = False
             warning_element = response_element.find('WARNING')
             if warning_element is None:
-                logHandler.dynamicLogger("End of pagination for ids {ids}", ids = ids)
+                logHandler.dynamicLogger("End of pagination for ids {ids}", ids=ids)
                 keep_running = False
             else:
                 next_page_url = warning_element.find('URL').text
-                params = utils.get_params_from_url(url = next_page_url)
+                params = utils.get_params_from_url(url=next_page_url)
                 batch += 1
 
     def checkLimits(self):
@@ -1408,34 +1401,34 @@ class APIClient(object):
         to ensure we dont start too many threads
         """
         limits = {
-                'x-concurrency-limit-limit'  : APIResponse.responseHeaders.get('X-Concurrency-Limit-Limit', "0"),
-                'x-ratelimit-remaining'      : APIResponse.responseHeaders.get('X-RateLimit-Remaining', "0"),
-                'x-concurrency-limit-running': APIResponse.responseHeaders.get('X-Concurrency-Limit-Running', "0"),
-                'x-ratelimit-window-sec'     : APIResponse.responseHeaders.get('X-RateLimit-Window-Sec', "0")
+            'x-concurrency-limit-limit': APIResponse.responseHeaders.get('X-Concurrency-Limit-Limit', "0"),
+            'x-ratelimit-remaining': APIResponse.responseHeaders.get('X-RateLimit-Remaining', "0"),
+            'x-concurrency-limit-running': APIResponse.responseHeaders.get('X-Concurrency-Limit-Running', "0"),
+            'x-ratelimit-window-sec': APIResponse.responseHeaders.get('X-RateLimit-Window-Sec', "0")
         }
 
         if int(limits.get('x-concurrency-limit-limit')) < self.config.numDetectionThreads:
             logHandler.dynamicLogger(
-                    'Configured number of threads: {numthreads} is higher than subscription limit of '
-                    'x-concurrency-limit-limit: {limit}, Please verify subscription limits and reduce '
-                    'configured threads to use.',
-                    numthreads = self.config.numDetectionThreads,
-                    limit = int(limits.get('x-concurrency-limit-limit')))
+                'Configured number of threads: {numthreads} is higher than subscription limit of '
+                'x-concurrency-limit-limit: {limit}, Please verify subscription limits and reduce '
+                'configured threads to use.',
+                numthreads=self.config.numDetectionThreads,
+                limit=int(limits.get('x-concurrency-limit-limit')))
             exit()
         else:
             logHandler.dynamicLogger(
-                    'Configured number of threads: {numthreads}, '
-                    'x-concurrency-limit-limit: {limit}, ',
-                    numthreads = self.config.numDetectionThreads,
-                    limit = int(limits.get('x-concurrency-limit-limit'))
+                'Configured number of threads: {numthreads}, '
+                'x-concurrency-limit-limit: {limit}, ',
+                numthreads=self.config.numDetectionThreads,
+                limit=int(limits.get('x-concurrency-limit-limit'))
             )
 
     def startThreads(self,
-                     target = None,
-                     assetids = None,
-                     ThreadName = None,
-                     Queue = None,
-                     threadcount = 0):
+                     target=None,
+                     assetids=None,
+                     ThreadName=None,
+                     Queue=None,
+                     threadcount=0):
         """
         :param target: is the callable object to be invoked by the Thread.run() method.
                        Defaults to None, meaning nothing is called.
@@ -1453,9 +1446,9 @@ class APIClient(object):
             self.config.numDetectionThreads = batchcnt
 
         logHandler.dynamicLogger("Starting {numthreads} threads for {ThreadType} download. Total batches: {cnt} ...",
-                                 numthreads = threadcount,
-                                 ThreadType = ThreadName,
-                                 cnt = batchcnt
+                                 numthreads=threadcount,
+                                 ThreadType=ThreadName,
+                                 cnt=batchcnt
                                  )
 
         for id_chunk in assetids:
@@ -1463,12 +1456,12 @@ class APIClient(object):
             queue.Queue.put(Queue, id_range)
 
         for i in range(0, threadcount):
-            thread = Thread(target = target, name = ThreadName + '-' + str(i), args = (Queue,))
+            thread = Thread(target=target, name=ThreadName + '-' + str(i), args=(Queue,))
             thread.setDaemon(True)
             thread.start()
             workers.append(thread)
-            logHandler.dynamicLogger("Started {ThreadName} thread # {threadnum}", ThreadName = ThreadName,
-                                     threadnum = i)
+            logHandler.dynamicLogger("Started {ThreadName} thread # {threadnum}", ThreadName=ThreadName,
+                                     threadnum=i)
         return workers
 
     def execute(self):
@@ -1484,8 +1477,8 @@ class APIClient(object):
         else:
             self.id_set = self.get_asset_ids()
         logHandler.dynamicLogger(self.logMessages.message(GOTASSETSRESPONSE),
-                                 numids = len(self.id_set),
-                                 size = self.receivedBytes)
+                                 numids=len(self.id_set),
+                                 size=self.receivedBytes)
 
         self.total_hosts = self.remaining = len(self.id_set)
         ids = utils.IDSet()
@@ -1506,27 +1499,27 @@ class APIClient(object):
 
         if self.downloadAssets:
             assetWorkers = self.startThreads(
-                    threadcount = self.config.numAssetThreads,
-                    assetids = chunks,
-                    target = self.assets_coordinator,
-                    ThreadName = 'assetsThread',
-                    Queue = queue.Queue())
+                threadcount=self.config.numAssetThreads,
+                assetids=chunks,
+                target=self.assets_coordinator,
+                ThreadName='assetsThread',
+                Queue=queue.Queue())
 
         if self.downloadDetections:
             detectionWorkers = self.startThreads(
-                    threadcount = self.config.numDetectionThreads,
-                    assetids = chunks,
-                    target = self.vm_detection_coordinator,
-                    ThreadName = 'detectionThread',
-                    Queue = queue.Queue())
+                threadcount=self.config.numDetectionThreads,
+                assetids=chunks,
+                target=self.vm_detection_coordinator,
+                ThreadName='detectionThread',
+                Queue=queue.Queue())
 
         if self.downloadHostAssets:
             hostAssetWorkers = self.startThreads(
-                    threadcount = self.config.numHostAssetThreads,
-                    assetids = chunks,
-                    target = self.portal_assethost_coordinator,
-                    ThreadName = 'hostAssetThread',
-                    Queue = queue.Queue())
+                threadcount=self.config.numHostAssetThreads,
+                assetids=chunks,
+                target=self.portal_assethost_coordinator,
+                ThreadName='hostAssetThread',
+                Queue=queue.Queue())
 
         workers = assetWorkers + detectionWorkers + hostAssetWorkers
 
@@ -1534,13 +1527,13 @@ class APIClient(object):
         for worker in workers:
             worker.join()
 
-        duration = self.callDuration(startTime = startTime)
+        duration = self.callDuration(startTime=startTime)
         logHandler.dynamicLogger(self.logMessages.message(TOTALDOWNLOADED),
-                                 duration = duration,
-                                 bytes = self.receivedBytes,
-                                 speed = round(self.receivedBytes / duration / 1000, 2),
-                                 hosts = self.host_logged,
-                                 batchsize = self.config.chunkSize)
+                                 duration=duration,
+                                 bytes=self.receivedBytes,
+                                 speed=round(self.receivedBytes / duration / 1000, 2),
+                                 hosts=self.host_logged,
+                                 batchsize=self.config.chunkSize)
 
     def parse_options(self):
         """This method parses all options given in command line."""
@@ -1560,58 +1553,58 @@ class APIClient(object):
                  " 2019-04-05 20:16:13-0700 INFO: [qPyMultiThread] Validation successful, " \
                  "proceeding. verifying limits\n" \
                  " \n\n"
-        option = OptionParser(formatter = fmt, description = description, epilog = epilog)
-        parser = OptionGroup(option, title = "Connection Options")
+        option = OptionParser(formatter=fmt, description=description, epilog=epilog)
+        parser = OptionGroup(option, title="Connection Options")
 
         parser.add_option("-s",
-                          dest = "baseURL",
-                          default = "https://qualysapi.qualys.com",
-                          help = "Qualys API Server. Defaults to US Platform 1")
+                          dest="baseURL",
+                          default="https://qualysapi.qualys.com",
+                          help="Qualys API Server. Defaults to US Platform 1")
         parser.add_option("-u",
-                          dest = "username",
-                          help = "Qualys API Username")
+                          dest="username",
+                          help="Qualys API Username")
         parser.add_option("-p",
-                          dest = "password",
-                          help = "Qualys API Password")
+                          dest="password",
+                          help="Qualys API Password")
         parser.add_option("-P",
-                          dest = "useProxy",
-                          default = False,
-                          help = "Enable/Disable using Proxy")
+                          dest="useProxy",
+                          default=False,
+                          help="Enable/Disable using Proxy")
         parser.add_option("-x",
-                          dest = "proxyHost",
-                          default = 'None',
-                          help = "Proxy to use e.g http://localhost:3128")
-        conf = OptionGroup(option, title = "Configuration Options")
+                          dest="proxyHost",
+                          default='None',
+                          help="Proxy to use e.g http://localhost:3128")
+        conf = OptionGroup(option, title="Configuration Options")
         conf.add_option("-a",
-                        dest = "numAssetThreads",
-                        default = 0,
-                        help = "Number of threads to fetch host assets")
+                        dest="numAssetThreads",
+                        default=0,
+                        help="Number of threads to fetch host assets")
         conf.add_option("-d",
-                        dest = "numDetectionThreads",
-                        default = 0,
-                        help = "Number of threads to fetch host detections")
+                        dest="numDetectionThreads",
+                        default=0,
+                        help="Number of threads to fetch host detections")
         conf.add_option("-z",
-                        dest = "numHostAssetThreads",
-                        default = 0,
-                        help = "Number of threads to fetch Portal HostAssets")
+                        dest="numHostAssetThreads",
+                        default=0,
+                        help="Number of threads to fetch Portal HostAssets")
         conf.add_option("-v",
-                        dest = "detectionDelta",
-                        default = "2000-01-01",
-                        help = "Only pull Data scanned after this date.")
+                        dest="detectionDelta",
+                        default="2000-01-01",
+                        help="Only pull Data scanned after this date.")
         conf.add_option("-c",
-                        dest = "chunkSize",
-                        default = 1000,
-                        help = "Batch size of Host ID chunks")
+                        dest="chunkSize",
+                        default=1000,
+                        help="Batch size of Host ID chunks")
         conf.add_option("-i",
-                        dest = "pullbyip",
-                        default = False,
-                        action = 'store_false',
-                        help = "Enable pulling data by batches of IPs instead of host ids")
+                        dest="pullbyip",
+                        default=False,
+                        action='store_false',
+                        help="Enable pulling data by batches of IPs instead of host ids")
         conf.add_option("-D",
-                        dest = "debug",
-                        default = False,
-                        action = 'store_false',
-                        help = "Enable Debug Logging")
+                        dest="debug",
+                        default=False,
+                        action='store_true',
+                        help="Enable Debug Logging")
         option.add_option_group(parser)
         option.add_option_group(conf)
         (options, values) = option.parse_args()
@@ -1631,27 +1624,27 @@ class APIClient(object):
             password = getpass.getpass("QG Password:")
 
         self.config = Configuration(
-                username = username,
-                password = password,
-                baseURL = options.baseURL,
-                useProxy = options.useProxy,
-                proxyHost = options.proxyHost,
-                validateURL = '/msp/about.php',
-                numAssetThreads = int(options.numAssetThreads),
-                numDetectionThreads = int(options.numDetectionThreads),
-                numHostAssetThreads = int(options.numHostAssetThreads),
-                chunkSize = int(options.chunkSize),
-                detectionDelta = options.detectionDelta,
-                debug = options.debug,
-                NoRetryCodes = NORETRYCODES,
-                key = None,
-                pullbyip = options.pullbyip,
-                default_settings = None)
+            username=username,
+            password=password,
+            baseURL=options.baseURL,
+            useProxy=options.useProxy,
+            proxyHost=options.proxyHost,
+            validateURL='/msp/about.php',
+            numAssetThreads=int(options.numAssetThreads),
+            numDetectionThreads=int(options.numDetectionThreads),
+            numHostAssetThreads=int(options.numHostAssetThreads),
+            chunkSize=int(options.chunkSize),
+            detectionDelta=options.detectionDelta,
+            debug=options.debug,
+            NoRetryCodes=NORETRYCODES,
+            key=None,
+            pullbyip=options.pullbyip,
+            default_settings=None)
 
         if self.config.debug:
             logHandler.enableDebug(True)
         logHandler.enableLogger()
-        logHandler.dynamicLogger('Debug logging enabled', logLevel = DEBUG)
+        logHandler.dynamicLogger('Debug logging enabled', logLevel=DEBUG)
 
         if self.config.useProxy is True:
             if self.config.proxyHost == 'None':
@@ -1675,7 +1668,7 @@ class APIClient(object):
 
         if not self.downloadAssets and not self.downloadDetections and not self.downloadHostAssets:
             raise CongifurationException(
-                    "Please set at least one of -a / -d / -h option You haven't set any of them with valid value")
+                "Please set at least one of -a / -d option. You haven't set any of them with valid value")
         try:
             v = self.validate()
             if v:
@@ -1686,9 +1679,9 @@ class APIClient(object):
         except Exception as e:
             import traceback
             logHandler.dynamicLogger(
-                    self.logMessages.message(TRACEUNEXPECTED),
-                    'error',
-                    traceback = traceback.format_exc())
+                self.logMessages.message(TRACEUNEXPECTED),
+                'error',
+                traceback=traceback.format_exc())
             raise Exception("Validation Failed: %s" % e)
 
 

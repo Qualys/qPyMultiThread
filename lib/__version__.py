@@ -1,5 +1,5 @@
 # -*- coding=iso-8859-1 -*-
-# Copyright 2019 Qualys Inc. All Rights Reserved.
+# Copyright 2021 Qualys Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-__version__ = '2.1'
+__version__ = '2.2'
 __author__ = 'Nick Williams'
 __email__ = 'nwilliams@qualys.com'
-__status__  = 'Production'
+__status__ = 'Production'
 __license__ = 'Apache 2.0'
-__copyright__ = 'Copyright 2019 Qualys Inc.'
+__copyright__ = 'Copyright 2021 Qualys Inc.'
