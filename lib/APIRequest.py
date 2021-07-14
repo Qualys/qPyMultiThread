@@ -1,5 +1,5 @@
 # -*- coding=iso-8859-1 -*-
-# Copyright 2019 Qualys Inc. All Rights Reserved.
+# Copyright 2021 Qualys Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,15 +20,11 @@ _ver = sys.version_info
 #: Python 2.x?
 is_py2 = (_ver[0] == 2)
 
-#: Python 3.x?
-is_py3 = (_ver[0] == 3)
-
 if is_py2:
-    from urllib2 import Request
-    from urllib import urlencode
-if is_py3:
-    from future.moves.urllib.parse import urlencode
-    from future.moves.urllib.request import Request
+    quit()
+
+from urllib.parse import urlencode
+from urllib.request import Request
 
 from .auth import _basic_auth_str
 from .__version__ import __version__
